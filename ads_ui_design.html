@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Silent Sender — UI Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #090b10;
+    --surface: #0e1117;
+    --card: #131820;
+    --border: #1e2636;
+    --border-glow: #2a3a55;
+    --text: #e8edf5;
+    --muted: #5a6a85;
+    --dim: #3a4a65;
+
+    --normal: #00c9a7;
+    --normal-bg: rgba(0,201,167,0.07);
+    --normal-glow: rgba(0,201,167,0.25);
+
+    --advanced: #4e7fff;
+    --advanced-bg: rgba(78,127,255,0.07);
+    --advanced-glow: rgba(78,127,255,0.25);
+
+    --admin: #ff6b35;
+    --admin-bg: rgba(255,107,53,0.07);
+    --admin-glow: rgba(255,107,53,0.25);
+
+    --line: #1e2636;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Noise overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  /* Grid bg */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 48px 48px;
+    opacity: 0.3;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 48px 32px 80px;
+  }
+
+  /* ── Header ── */
+  header {
+    text-align: center;
+    margin-bottom: 72px;
+  }
+
+  .brand-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border-glow);
+    border-radius: 100px;
+    padding: 6px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+  }
+  .brand-tag::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--normal);
+    box-shadow: 0 0 8px var(--normal);
+    animation: pulse 2s ease infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  h1 {
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #e8edf5 30%, #5a6a85);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 15px;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+  }
+
+  /* ── Role Panels ── */
+  .roles-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-bottom: 80px;
+  }
+
+  @media(max-width:900px){ .roles-grid { grid-template-columns: 1fr; } }
+
+  .role-panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+    transition: border-color .3s, box-shadow .3s;
+  }
+  .role-panel:hover { border-color: var(--border-glow); }
+
+  .role-panel.normal:hover  { box-shadow: 0 0 40px var(--normal-glow); border-color: var(--normal); }
+  .role-panel.advanced:hover { box-shadow: 0 0 40px var(--advanced-glow); border-color: var(--advanced); }
+  .role-panel.admin:hover   { box-shadow: 0 0 40px var(--admin-glow); border-color: var(--admin); }
+
+  .panel-header {
+    padding: 24px 24px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .role-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .normal .role-icon  { background: var(--normal-bg);   box-shadow: 0 0 20px var(--normal-glow);   }
+  .advanced .role-icon { background: var(--advanced-bg); box-shadow: 0 0 20px var(--advanced-glow); }
+  .admin .role-icon   { background: var(--admin-bg);    box-shadow: 0 0 20px var(--admin-glow);    }
+
+  .role-meta h2 {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .normal  .role-meta h2 { color: var(--normal);   }
+  .advanced .role-meta h2 { color: var(--advanced); }
+  .admin   .role-meta h2 { color: var(--admin);    }
+
+  .role-meta p {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 3px;
+  }
+
+  .price-tag {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 100px;
+    border: 1px solid;
+  }
+  .normal .price-tag  { color: var(--normal);   border-color: var(--normal-glow);   background: var(--normal-bg);   }
+  .advanced .price-tag { color: var(--advanced); border-color: var(--advanced-glow); background: var(--advanced-bg); }
+  .admin .price-tag   { color: var(--admin);    border-color: var(--admin-glow);    background: var(--admin-bg);    }
+
+  .menu-list {
+    padding: 20px 24px;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: default;
+    transition: background .2s;
+    border: 1px solid transparent;
+  }
+  .menu-item:hover { background: var(--surface); border-color: var(--border); }
+
+  .menu-item .icon { font-size: 15px; width: 20px; text-align: center; }
+
+  .menu-item .badge {
+    margin-left: auto;
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 2px 7px;
+    border-radius: 100px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+  }
+  .badge.adv  { background: var(--advanced-bg); color: var(--advanced); border: 1px solid var(--advanced-glow); }
+  .badge.adm  { background: var(--admin-bg);    color: var(--admin);    border: 1px solid var(--admin-glow);    }
+  .badge.owner { background: rgba(255,200,0,.1); color: #ffc800; border: 1px solid rgba(255,200,0,.3); }
+
+  .menu-section {
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--dim);
+    padding: 14px 12px 6px;
+    font-weight: 500;
+  }
+
+  .sub-items {
+    padding-left: 18px;
+  }
+  .sub-items .menu-item {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .sub-items .menu-item:hover { color: var(--text); }
+
+  /* ── Tree Section ── */
+  .tree-section {
+    margin-top: 16px;
+  }
+
+  .section-label {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .section-label h2 {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 8px;
+  }
+  .section-label p { color: var(--muted); font-size: 14px; }
+
+  .tree-container {
+    overflow-x: auto;
+    padding-bottom: 24px;
+  }
+
+  .tree {
+    min-width: 1100px;
+    padding: 0 40px;
+  }
+
+  /* Root */
+  .tree-root {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 0;
+  }
+
+  .root-node {
+    background: var(--card);
+    border: 2px solid var(--border-glow);
+    border-radius: 16px;
+    padding: 18px 32px;
+    text-align: center;
+    position: relative;
+  }
+  .root-node::after {
+    content: '';
+    position: absolute;
+    bottom: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 40px;
+    background: var(--dim);
+  }
+  .root-node h3 { font-size: 18px; font-weight: 800; }
+  .root-node p { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-top: 4px; }
+
+  /* Level 1 — roles */
+  .level1 {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    margin-top: 40px;
+    position: relative;
+  }
+  .level1::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: calc(16.67% + 1px);
+    right: calc(16.67% + 1px);
+    height: 2px;
+    background: var(--dim);
+  }
+
+  .l1-branch {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+  .l1-branch::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 32px;
+    background: var(--dim);
+  }
+
+  .l1-node {
+    margin-top: 32px;
+    padding: 14px 24px;
+    border-radius: 12px;
+    text-align: center;
+    border: 1.5px solid;
+    width: 85%;
+    position: relative;
+  }
+  .l1-node::after {
+    content: '';
+    position: absolute;
+    bottom: -28px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 28px;
+  }
+  .l1-node.normal  { background: var(--normal-bg);   border-color: var(--normal);   color: var(--normal);   }
+  .l1-node.normal::after  { background: var(--normal);   }
+  .l1-node.advanced { background: var(--advanced-bg); border-color: var(--advanced); color: var(--advanced); }
+  .l1-node.advanced::after { background: var(--advanced); }
+  .l1-node.admin   { background: var(--admin-bg);    border-color: var(--admin);    color: var(--admin);    }
+  .l1-node.admin::after   { background: var(--admin);    }
+
+  .l1-node h4 { font-size: 14px; font-weight: 800; }
+  .l1-node span { font-size: 10px; opacity: .7; font-family: 'JetBrains Mono', monospace; }
+
+  /* Level 2 — menu groups */
+  .level2 {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    margin-top: 28px;
+  }
+
+  .l2-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 0 6px;
+  }
+
+  .l2-node {
+    width: 100%;
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 11.5px;
+    font-weight: 600;
+    text-align: center;
+    border: 1px solid;
+    line-height: 1.3;
+    position: relative;
+  }
+
+  .l2-node.n { background: var(--normal-bg);   border-color: rgba(0,201,167,0.3);   color: var(--normal);   }
+  .l2-node.a { background: var(--advanced-bg); border-color: rgba(78,127,255,0.3);  color: var(--advanced); }
+  .l2-node.ad{ background: var(--admin-bg);    border-color: rgba(255,107,53,0.3);  color: var(--admin);    }
+
+  .l2-node .sub {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+  }
+  .sub-leaf {
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--muted);
+    text-align: left;
+    padding: 2px 0 2px 8px;
+    border-left: 2px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .sub-leaf.n { border-left-color: rgba(0,201,167,0.4);   color: rgba(0,201,167,0.7);   }
+  .sub-leaf.a { border-left-color: rgba(78,127,255,0.4);  color: rgba(78,127,255,0.7);  }
+  .sub-leaf.ad{ border-left-color: rgba(255,107,53,0.4);  color: rgba(255,107,53,0.7);  }
+
+  /* ── Stats Bar ── */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 64px;
+  }
+  @media(max-width:700px){ .stats-bar { grid-template-columns: repeat(2, 1fr); } }
+
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 20px;
+    text-align: center;
+  }
+  .stat-val {
+    font-size: 32px;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: -0.04em;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .stat-card:nth-child(1) .stat-val { color: var(--normal);   }
+  .stat-card:nth-child(2) .stat-val { color: var(--advanced); }
+  .stat-card:nth-child(3) .stat-val { color: var(--admin);    }
+  .stat-card:nth-child(4) .stat-val { color: var(--text);     }
+
+  /* ── Flow diagram ── */
+  .flow-section {
+    margin-top: 72px;
+  }
+  .flow-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  @media(max-width:800px){ .flow-grid { grid-template-columns: 1fr; } }
+
+  .flow-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+  }
+  .flow-card h3 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .flow-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .flow-step:last-child { border-bottom: none; }
+  .step-num {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .flow-card.nc .step-num { background: var(--normal-bg);   color: var(--normal);   border: 1px solid var(--normal-glow);   }
+  .flow-card.ac .step-num { background: var(--advanced-bg); color: var(--advanced); border: 1px solid var(--advanced-glow); }
+  .flow-card.adc .step-num { background: var(--admin-bg);   color: var(--admin);    border: 1px solid var(--admin-glow);    }
+  .flow-card.nc h3  { color: var(--normal);   }
+  .flow-card.ac h3  { color: var(--advanced); }
+  .flow-card.adc h3 { color: var(--admin);    }
+
+  .step-txt { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+  .step-txt strong { color: var(--text); font-weight: 600; }
+
+  /* Separator */
+  .sep {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-glow), transparent);
+    margin: 64px 0;
+  }
+
+  /* Scroll hint */
+  .scroll-hint {
+    text-align: center;
+    color: var(--dim);
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 24px;
+    display: none;
+  }
+  @media(max-width:1100px) { .scroll-hint { display: block; } }
+
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <header>
+    <div class="brand-tag">⚡ Silent Sender Bot · UI Architecture v2.0</div>
+    <h1>Complete Panel Design<br>& Menu Structure</h1>
+    <p class="subtitle">3 user roles · Full navigation tree · Premium telegram bot interface</p>
+  </header>
+
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="stat-val">11</div>
+      <div class="stat-label">Normal Menu Items</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">17</div>
+      <div class="stat-label">Advanced Items</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">+4</div>
+      <div class="stat-label">Admin Exclusive</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">32</div>
+      <div class="stat-label">Total UI Actions</div>
+    </div>
+  </div>
+
+  <!-- Role Panels -->
+  <div class="roles-grid">
+
+    <!-- NORMAL -->
+    <div class="role-panel normal">
+      <div class="panel-header">
+        <div class="role-icon">👤</div>
+        <div class="role-meta">
+          <h2>Normal User</h2>
+          <p>mode:normal · basic access</p>
+        </div>
+        <div class="price-tag">$6/mo</div>
+      </div>
+      <ul class="menu-list">
+        <li class="menu-section">── Loop Control</li>
+        <li class="menu-item"><span class="icon">▶️</span> Start Loop</li>
+        <li class="menu-item"><span class="icon">⏹</span> Stop Loop</li>
+        <li class="menu-section">── Group Management</li>
+        <li class="menu-item"><span class="icon">🔄</span> Fetch Groups</li>
+        <li class="menu-item"><span class="icon">🎯</span> Select Groups</li>
+        <li class="menu-section">── Configuration</li>
+        <li class="menu-item"><span class="icon">⏳</span> Set Delay</li>
+        <li class="menu-item"><span class="icon">✏️</span> Set Message</li>
+        <li class="menu-section">── Account</li>
+        <li class="menu-item"><span class="icon">👤</span> Accounts
+          <div class="sub-items" style="display:none"></div>
+        </li>
+        <li class="menu-section">── Sub: Accounts</li>
+        <ul class="sub-items">
+          <li class="menu-item"><span class="icon">➕</span> Add / Login</li>
+          <li class="menu-item"><span class="icon">🔀</span> Switch Active</li>
+          <li class="menu-item"><span class="icon">🚪</span> Logout</li>
+          <li class="menu-item"><span class="icon">📋</span> View Accounts</li>
+        </ul>
+        <li class="menu-section">── Other</li>
+        <li class="menu-item"><span class="icon">🗑</span> Reset</li>
+        <li class="menu-item"><span class="icon">⚙️</span> → Switch to Advanced</li>
+        <li class="menu-item"><span class="icon">🛡</span> Grant Permission <span class="badge owner">OWNER</span></li>
+        <li class="menu-item"><span class="icon">📊</span> Permission Stats <span class="badge owner">OWNER</span></li>
+      </ul>
+    </div>
+
+    <!-- ADVANCED -->
+    <div class="role-panel advanced">
+      <div class="panel-header">
+        <div class="role-icon">⚙️</div>
+        <div class="role-meta">
+          <h2>Advanced User</h2>
+          <p>mode:advanced · full access</p>
+        </div>
+        <div class="price-tag">$8/mo</div>
+      </div>
+      <ul class="menu-list">
+        <li class="menu-section">── Loop Control</li>
+        <li class="menu-item"><span class="icon">▶️</span> Start Loop</li>
+        <li class="menu-item"><span class="icon">⏹</span> Stop Loop</li>
+        <li class="menu-section">── Group Management</li>
+        <li class="menu-item"><span class="icon">🔄</span> Fetch Groups</li>
+        <li class="menu-item"><span class="icon">📂</span> Groups View</li>
+        <li class="menu-item"><span class="icon">🎯</span> Select Groups</li>
+        <li class="menu-item"><span class="icon">📌</span> Specific Groups <span class="badge adv">ADV</span></li>
+        <li class="menu-item"><span class="icon">📡</span> Set Fetch Group <span class="badge adv">ADV</span></li>
+        <li class="menu-section">── Configuration</li>
+        <li class="menu-item"><span class="icon">⏳</span> Set Delay</li>
+        <li class="menu-item"><span class="icon">⏱</span> Set Interval <span class="badge adv">ADV</span></li>
+        <li class="menu-item"><span class="icon">✏️</span> Set Message</li>
+        <li class="menu-section">── Advanced Features</li>
+        <li class="menu-item"><span class="icon">🗓</span> Scheduler <span class="badge adv">ADV</span></li>
+        <ul class="sub-items">
+          <li class="menu-item"><span class="icon">➕</span> Add Schedule</li>
+          <li class="menu-item"><span class="icon">📋</span> View Schedules</li>
+          <li class="menu-item"><span class="icon">🗑</span> Delete Schedule</li>
+          <li class="menu-item" style="font-size:11px;color:var(--muted)"><span class="icon">🔁</span> Every X Minutes</li>
+          <li class="menu-item" style="font-size:11px;color:var(--muted)"><span class="icon">📅</span> Daily at Time</li>
+          <li class="menu-item" style="font-size:11px;color:var(--muted)"><span class="icon">🗓</span> Weekly (Day picker)</li>
+        </ul>
+        <li class="menu-item"><span class="icon">📡</span> Log Forwarding <span class="badge adv">ADV</span></li>
+        <ul class="sub-items">
+          <li class="menu-item"><span class="icon">🔧</span> Set Log Group ID</li>
+          <li class="menu-item"><span class="icon">▶️</span> Start Log Forwarding</li>
+          <li class="menu-item"><span class="icon">⏹</span> Stop Log Forwarding</li>
+          <li class="menu-item"><span class="icon">📊</span> Status</li>
+        </ul>
+        <li class="menu-section">── Account & Reset</li>
+        <li class="menu-item"><span class="icon">👤</span> Accounts</li>
+        <li class="menu-item"><span class="icon">🗑</span> Reset</li>
+        <li class="menu-item"><span class="icon">👤</span> → Switch to Normal</li>
+        <li class="menu-item"><span class="icon">🛡</span> Grant Permission <span class="badge owner">OWNER</span></li>
+        <li class="menu-item"><span class="icon">📊</span> Permission Stats <span class="badge owner">OWNER</span></li>
+      </ul>
+    </div>
+
+    <!-- ADMIN / OWNER -->
+    <div class="role-panel admin">
+      <div class="panel-header">
+        <div class="role-icon">🛡</div>
+        <div class="role-meta">
+          <h2>Admin / Owner</h2>
+          <p>owner_id match · full control</p>
+        </div>
+        <div class="price-tag">ROOT</div>
+      </div>
+      <ul class="menu-list">
+        <li class="menu-section">── Inherits All Advanced</li>
+        <li class="menu-item" style="color:var(--muted);font-size:12px"><span class="icon">↳</span> All Advanced features included</li>
+        <li class="menu-section">── Admin Exclusive</li>
+        <li class="menu-item"><span class="icon">🛡</span> Grant Permission <span class="badge adm">ADMIN</span></li>
+        <li class="menu-item"><span class="icon">📊</span> Permission Stats <span class="badge adm">ADMIN</span></li>
+        <li class="menu-section">── Permission System</li>
+        <ul class="sub-items">
+          <li class="menu-item"><span class="icon">✅</span> Grant to User ID</li>
+          <li class="menu-item"><span class="icon">❌</span> Revoke from User</li>
+          <li class="menu-item"><span class="icon">📋</span> List All Permitted</li>
+          <li class="menu-item"><span class="icon">📈</span> View Stats/Usage</li>
+        </ul>
+        <li class="menu-section">── Plans & Sales</li>
+        <li class="menu-item"><span class="icon">💳</span> Buy Normal Plan <span class="badge adm">URL</span></li>
+        <li class="menu-item"><span class="icon">🚀</span> Buy Advanced Plan <span class="badge adm">URL</span></li>
+        <li class="menu-item"><span class="icon">🛠</span> Custom Plan <span class="badge adm">URL</span></li>
+        <li class="menu-item"><span class="icon">👤</span> Contact Owner <span class="badge adm">URL</span></li>
+        <li class="menu-section">── Reset (Full)</li>
+        <ul class="sub-items">
+          <li class="menu-item"><span class="icon">🗂</span> Reset JSON (per account)</li>
+          <li class="menu-item"><span class="icon">👤</span> Reset Sessions</li>
+          <li class="menu-item"><span class="icon">🔥</span> Reset All (irreversible)</li>
+        </ul>
+        <li class="menu-section">── Bot Config</li>
+        <li class="menu-item" style="color:var(--muted);font-size:12px"><span class="icon">⚙️</span> config.py — BOT_TOKEN, API_ID</li>
+        <li class="menu-item" style="color:var(--muted);font-size:12px"><span class="icon">📁</span> user_data/ — session & JSON files</li>
+        <li class="menu-item" style="color:var(--muted);font-size:12px"><span class="icon">📄</span> permissions.json — user access</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- Menu Tree -->
+  <div class="tree-section">
+    <div class="section-label">
+      <h2>Full Navigation Tree</h2>
+      <p>Complete parent → child menu hierarchy for all user roles</p>
+    </div>
+
+    <div class="scroll-hint">← Scroll horizontally to view full tree →</div>
+    <div class="tree-container">
+      <div class="tree">
+
+        <!-- Root -->
+        <div class="tree-root">
+          <div class="root-node">
+            <h3>🤖 Silent Sender Bot</h3>
+            <p>/start · mode selection</p>
+          </div>
+        </div>
+
+        <!-- L1: Roles -->
+        <div class="level1">
+          <div class="l1-branch">
+            <div class="l1-node normal"><h4>👤 Normal User</h4><span>mode:normal</span></div>
+          </div>
+          <div class="l1-branch">
+            <div class="l1-node advanced"><h4>⚙️ Advanced User</h4><span>mode:advanced</span></div>
+          </div>
+          <div class="l1-branch">
+            <div class="l1-node admin"><h4>🛡 Admin / Owner</h4><span>owner_id match</span></div>
+          </div>
+        </div>
+
+        <!-- L2: Menu items per role -->
+        <div class="level2">
+
+          <!-- Normal -->
+          <div class="l2-col">
+            <div class="l2-node n">▶️ Start Loop</div>
+            <div class="l2-node n">⏹ Stop Loop</div>
+            <div class="l2-node n">🔄 Fetch Groups</div>
+            <div class="l2-node n">🎯 Select Groups
+              <div class="sub">
+                <span class="sub-leaf n">✅ Toggle per group</span>
+                <span class="sub-leaf n">✅ All / ❌ None</span>
+                <span class="sub-leaf n">⬅️ Prev / Next ➡️ pages</span>
+                <span class="sub-leaf n">💾 Save selection</span>
+              </div>
+            </div>
+            <div class="l2-node n">⏳ Set Delay</div>
+            <div class="l2-node n">✏️ Set Message</div>
+            <div class="l2-node n">👤 Accounts
+              <div class="sub">
+                <span class="sub-leaf n">➕ Add / Login Account</span>
+                <span class="sub-leaf n">🔀 Switch Active</span>
+                <span class="sub-leaf n">🚪 Logout Account</span>
+                <span class="sub-leaf n">📋 View All</span>
+              </div>
+            </div>
+            <div class="l2-node n">🗑 Reset
+              <div class="sub">
+                <span class="sub-leaf n">🗂 Reset JSON</span>
+                <span class="sub-leaf n">👤 Reset Sessions</span>
+                <span class="sub-leaf n">🔥 Reset All</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Advanced -->
+          <div class="l2-col">
+            <div class="l2-node a">▶️ Start Loop
+              <div class="sub">
+                <span class="sub-leaf a">📌 Use Specific Groups</span>
+                <span class="sub-leaf a">📋 Use Selected Groups</span>
+                <span class="sub-leaf a">📦 Use Both</span>
+              </div>
+            </div>
+            <div class="l2-node a">⏹ Stop Loop</div>
+            <div class="l2-node a">🔄 Fetch Groups</div>
+            <div class="l2-node a">📡 Log Forwarding
+              <div class="sub">
+                <span class="sub-leaf a">🔧 Set Log Group ID</span>
+                <span class="sub-leaf a">▶️ Start Forwarding</span>
+                <span class="sub-leaf a">⏹ Stop Forwarding</span>
+                <span class="sub-leaf a">📊 Status</span>
+              </div>
+            </div>
+            <div class="l2-node a">📡 Set Fetch Group</div>
+            <div class="l2-node a">⏳ Set Delay</div>
+            <div class="l2-node a">⏱ Set Interval</div>
+            <div class="l2-node a">📂 Groups View</div>
+            <div class="l2-node a">🎯 Select Groups</div>
+            <div class="l2-node a">✏️ Set Message</div>
+            <div class="l2-node a">🗓 Scheduler
+              <div class="sub">
+                <span class="sub-leaf a">➕ Add Schedule</span>
+                <span class="sub-leaf a">📋 View Schedules</span>
+                <span class="sub-leaf a">🗑 Delete Schedule</span>
+                <span class="sub-leaf a">↳ 🔁 Interval type</span>
+                <span class="sub-leaf a">↳ 📅 Daily type</span>
+                <span class="sub-leaf a">↳ 🗓 Weekly + day picker</span>
+              </div>
+            </div>
+            <div class="l2-node a">📌 Specific Groups
+              <div class="sub">
+                <span class="sub-leaf a">➕ Add Specific Group</span>
+                <span class="sub-leaf a">📋 View / Remove</span>
+              </div>
+            </div>
+            <div class="l2-node a">👤 Accounts</div>
+            <div class="l2-node a">🗑 Reset</div>
+          </div>
+
+          <!-- Admin -->
+          <div class="l2-col">
+            <div class="l2-node ad">↳ All Advanced items</div>
+            <div class="l2-node ad">🛡 Grant Permission
+              <div class="sub">
+                <span class="sub-leaf ad">Input: User ID</span>
+                <span class="sub-leaf ad">Set mode: normal/advanced</span>
+                <span class="sub-leaf ad">Confirm & write to JSON</span>
+              </div>
+            </div>
+            <div class="l2-node ad">📊 Permission Stats
+              <div class="sub">
+                <span class="sub-leaf ad">List all permitted users</span>
+                <span class="sub-leaf ad">View mode per user</span>
+                <span class="sub-leaf ad">Revoke access</span>
+              </div>
+            </div>
+            <div class="l2-node ad">💎 Plans / Sales
+              <div class="sub">
+                <span class="sub-leaf ad">💳 Buy Normal $6/mo</span>
+                <span class="sub-leaf ad">🚀 Buy Advanced $8/mo</span>
+                <span class="sub-leaf ad">🛠 Custom Plan</span>
+                <span class="sub-leaf ad">👤 Contact Owner</span>
+              </div>
+            </div>
+            <div class="l2-node ad">⚙️ config.py
+              <div class="sub">
+                <span class="sub-leaf ad">BOT_TOKEN</span>
+                <span class="sub-leaf ad">OWNER_ID / USERNAME</span>
+                <span class="sub-leaf ad">TELEGRAM_API_ID/HASH</span>
+              </div>
+            </div>
+            <div class="l2-node ad">📁 File System
+              <div class="sub">
+                <span class="sub-leaf ad">user_data/{phone}.json</span>
+                <span class="sub-leaf ad">user_data/{phone}.session</span>
+                <span class="sub-leaf ad">permissions.json</span>
+                <span class="sub-leaf ad">bot.log</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- User Flow -->
+  <div class="flow-section">
+    <div class="section-label">
+      <h2>User Journey Flows</h2>
+      <p>Step-by-step navigation paths for each role</p>
+    </div>
+    <div class="flow-grid">
+
+      <div class="flow-card nc">
+        <h3>👤 Normal User Journey</h3>
+        <div class="flow-step"><div class="step-num">01</div><div class="step-txt"><strong>/start</strong> → Mode selection screen appears</div></div>
+        <div class="flow-step"><div class="step-num">02</div><div class="step-txt">Tap <strong>👤 Normal User</strong> → Main menu loads</div></div>
+        <div class="flow-step"><div class="step-num">03</div><div class="step-txt"><strong>👤 Accounts</strong> → Add & login Telegram account via phone</div></div>
+        <div class="flow-step"><div class="step-num">04</div><div class="step-txt"><strong>🔄 Fetch Groups</strong> → Bot fetches all joined groups</div></div>
+        <div class="flow-step"><div class="step-num">05</div><div class="step-txt"><strong>🎯 Select Groups</strong> → Toggle target groups, save</div></div>
+        <div class="flow-step"><div class="step-num">06</div><div class="step-txt"><strong>✏️ Set Message</strong> → Input broadcast message</div></div>
+        <div class="flow-step"><div class="step-num">07</div><div class="step-txt"><strong>⏳ Set Delay</strong> → Set seconds between messages</div></div>
+        <div class="flow-step"><div class="step-num">08</div><div class="step-txt"><strong>▶️ Start Loop</strong> → Broadcast begins</div></div>
+      </div>
+
+      <div class="flow-card ac">
+        <h3>⚙️ Advanced User Journey</h3>
+        <div class="flow-step"><div class="step-num">01</div><div class="step-txt"><strong>/start</strong> → Mode select → pick <strong>⚙️ Advanced</strong></div></div>
+        <div class="flow-step"><div class="step-num">02</div><div class="step-txt"><strong>👤 Accounts</strong> → Add multiple accounts</div></div>
+        <div class="flow-step"><div class="step-num">03</div><div class="step-txt"><strong>📌 Specific Groups</strong> → Add groups by ID for precision targeting</div></div>
+        <div class="flow-step"><div class="step-num">04</div><div class="step-txt"><strong>📡 Log Forwarding</strong> → Setup live log channel</div></div>
+        <div class="flow-step"><div class="step-num">05</div><div class="step-txt"><strong>🗓 Scheduler</strong> → Set interval / daily / weekly schedule</div></div>
+        <div class="flow-step"><div class="step-num">06</div><div class="step-txt"><strong>⏱ Set Interval</strong> → Fine-tune burst timing</div></div>
+        <div class="flow-step"><div class="step-num">07</div><div class="step-txt"><strong>▶️ Start Loop</strong> → Choose: Specific / Selected / Both</div></div>
+        <div class="flow-step"><div class="step-num">08</div><div class="step-txt">Monitor via log forwarding in real-time</div></div>
+      </div>
+
+      <div class="flow-card adc">
+        <h3>🛡 Admin / Owner Journey</h3>
+        <div class="flow-step"><div class="step-num">01</div><div class="step-txt">Bot auto-detects <strong>OWNER_ID</strong> match on /start</div></div>
+        <div class="flow-step"><div class="step-num">02</div><div class="step-txt">Extra buttons appear: <strong>🛡 Grant</strong> + <strong>📊 Stats</strong></div></div>
+        <div class="flow-step"><div class="step-num">03</div><div class="step-txt"><strong>Grant Permission</strong> → Enter user ID, choose plan level</div></div>
+        <div class="flow-step"><div class="step-num">04</div><div class="step-txt">Written to <strong>permissions.json</strong> instantly</div></div>
+        <div class="flow-step"><div class="step-num">05</div><div class="step-txt"><strong>📊 Permission Stats</strong> → View all users + their access level</div></div>
+        <div class="flow-step"><div class="step-num">06</div><div class="step-txt">Share <strong>💎 Plans</strong> keyboard → links to owner Telegram</div></div>
+        <div class="flow-step"><div class="step-num">07</div><div class="step-txt"><strong>🔥 Reset All</strong> → Nuclear option with confirmation gate</div></div>
+        <div class="flow-step"><div class="step-num">08</div><div class="step-txt">Manage <strong>config.py</strong> directly for bot settings</div></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
